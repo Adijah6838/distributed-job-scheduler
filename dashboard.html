@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Job Scheduler</title>
+<style>body{font-family:Arial;max-width:900px;margin:20px auto}button{padding:8px 14px;margin:4px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style>
+</head><body>
+<h1>Distributed Job Scheduler</h1>
+<div id="stats"></div>
+<button onclick="submitJob('send_email')">+ Send Email</button>
+<button onclick="submitJob('generate_report')">+ Report</button>
+<button onclick="submitJob('fail_once')">+ Fail Once (Retry Test)</button>
+<button onclick="load()">Refresh</button>
+<table><thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Priority</th><th>Retries</th><th>Duration</th><th>Action</th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+const API="http://127.0.0.1:8000";
+async function load(){
+  let s=await (await fetch(API+"/stats")).json();
+  document.getElementById("stats").innerHTML="<b>Stats:</b> "+JSON.stringify(s.by_status);
+  let d=await (await fetch(API+"/jobs?limit=50")).json();
+  document.getElementById("rows").innerHTML=d.jobs.map(j=>`<tr><td>${j.id.slice(0,8)}</td><td>${j.type}</td><td>${j.status}</td><td>${j.priority}</td><td>${j.retry_count}</td><td>${j.duration_seconds??""}</td><td><button onclick="cancelJob('${j.id}')">Cancel</button></td></tr>`).join("");
+}
+async function submitJob(type){
+  await fetch(API+"/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,payload:{},priority:5,idempotency_key:"ui-"+Date.now()+"-"+Math.random()})});
+  load();
+}
+async function cancelJob(id){ await fetch(API+"/jobs/"+id+"/cancel",{method:"POST"}); load(); }
+load(); setInterval(load,3000);
+</script></body></html>
